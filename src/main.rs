@@ -1,7 +1,11 @@
+#[macro_use]
+extern crate serde_derive;
+
 use std::env;
 
 mod command;
 mod smh;
+mod calendar;
 
 fn get_command() -> command::Command {
     let verbs = vec!["push".to_owned(), "pull".to_owned()];

@@ -1,4 +1,5 @@
-struct School   {
+#[derive(Serialize, Deserialize)]
+pub struct School   {
     id          : i32,
     subdomain   : String,
     school_type : String,
@@ -14,7 +15,8 @@ struct School   {
     website     : String,
 }
 
-struct Employee {
+#[derive(Serialize, Deserialize)]
+pub struct Employee {
     id          : i32,
     title       : String,
     forename    : String,
@@ -22,23 +24,27 @@ struct Employee {
     // classes?
 }
 
-struct Subject  {
+#[derive(Serialize, Deserialize)]
+pub struct Subject  {
     id          : i32,
     name        : String,
 }
 
-struct Year     {
+#[derive(Serialize, Deserialize)]
+pub struct Year     {
     id          : i32,
     name        : String,
 }
 
-struct Class    {
+#[derive(Serialize, Deserialize)]
+pub struct Class    {
     id          : i32,
     name        : String,
     year_name   : String,
 }
 
-struct Entry    {
+#[derive(Serialize, Deserialize)]
+pub struct Entry    {
     id          : i32,
     title       : String,
     class_name  : String,
