@@ -64,7 +64,9 @@ impl Calendar {
         let mut cal  = path.clone();
         cal.push("calendar");
         cal.set_extension("yml");
-        
+
+        fs::create_dir_all(&cal)?;
+
         let mut cal_raw = String::new();
         File::open(cal)?.read_to_string(&mut cal_raw)?;
 
@@ -93,6 +95,7 @@ impl Calendar {
         Err(Error::last_os_error())
 
     }
+
 }
 
 

@@ -20,6 +20,19 @@ pub struct Command {
     args : Vec<Argument> ,
 }
 
+impl Command {
+    pub fn get_verb(&self) -> &Option<String> {
+        for arg in self.args.into_iter(){
+            match arg {
+                Argument::Verb(v) => return &v,
+                _                 => continue,
+            }
+        }
+
+        &None
+    }
+}
+
 enum ParseExpect {
     NextVerb          ,
     NextVal  (String) ,
@@ -128,7 +141,7 @@ pub fn parse_args(verbs: Vec<String>, raw_args: Vec<String>) -> Result<Command, 
             // If we're in a clean state (New) then we are free to create a plain Arg
             match expect {
                 ParseExpect::NextVerb     => if verbs.contains(raw) {
-                                                 args.push(Argument::Verb(Some(arg_val))) 
+                                                 args.push(Argument::Verb(Some(arg_val.to_lowercase()))) 
                                              } else {
                                                  args.push(Argument::Arg(Value::StringVal(arg_val)))
                                              },

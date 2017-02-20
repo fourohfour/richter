@@ -8,7 +8,7 @@ mod smh;
 mod calendar;
 
 fn get_command() -> command::Command {
-    let verbs = vec!["push".to_owned(), "pull".to_owned()];
+    let verbs = vec!["load".to_owned()];
     let parse_result =  command::parse_args(verbs, env::args().collect());
 
     match parse_result {
@@ -17,6 +17,25 @@ fn get_command() -> command::Command {
     }
 }
 
+fn get_calendar() -> calendar::Calendar {
+    let res = calendar::Calendar::load("~/.richter/");
+    match res {
+        Ok (cal) => return cal       ,
+        Err(msg) => panic!("{}", msg),
+    }
+}
+
+fn load_command(command: command::Command) {
+    let cal = get_calendar();
+}
+
 fn main() {
-    println!("{:?}", get_command());
+    let command =  get_command();
+    let optional_verb = command.get_verb();
+    if let Some(ref verb) = optional_verb {
+        match verb.trim() {
+            "load" => load_command(command),
+            _      => {}                   ,
+        }
+    }
 }
