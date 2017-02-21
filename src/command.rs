@@ -22,14 +22,13 @@ pub struct Command {
 
 impl Command {
     pub fn get_verb(&self) -> &Option<String> {
-        for arg in self.args.into_iter(){
+        for arg in self.args.iter(){
             match arg {
-                Argument::Verb(v) => return &v,
-                _                 => continue,
+                &Argument::Verb(ref v) => return v,
+                _                      => continue,
             }
         }
-
-        &None
+        panic!("Error in Command Parser: No Verb")
     }
 }
 

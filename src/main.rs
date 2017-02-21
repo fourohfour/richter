@@ -18,23 +18,25 @@ fn get_command() -> command::Command {
 }
 
 fn get_calendar() -> calendar::Calendar {
-    let res = calendar::Calendar::load("~/.richter/");
+    let mut home = env::home_dir().expect("No Home Dir!");
+    home.push(".richter");
+    let res = calendar::Calendar::load(home);
     match res {
         Ok (cal) => return cal       ,
         Err(msg) => panic!("{}", msg),
     }
 }
 
-fn load_command(command: command::Command) {
+fn load_command(command: &command::Command) {
     let cal = get_calendar();
 }
 
 fn main() {
     let command =  get_command();
     let optional_verb = command.get_verb();
-    if let Some(ref verb) = optional_verb {
+    if let &Some(ref verb) = optional_verb {
         match verb.trim() {
-            "load" => load_command(command),
+            "load" => load_command(&command),
             _      => {}                   ,
         }
     }

@@ -9,7 +9,7 @@ use std::io::Error;
 use std::io::Read;
 use std::path::PathBuf;
 use std::fs;
-use std::fs::File;
+use std::fs::{File, OpenOptions};
 
 use smh;
 
@@ -58,24 +58,25 @@ pub struct Calendar {
 }
 
 impl Calendar {
-    pub fn load(cal_path: &str) -> Result<Calendar, io::Error>{
-        let     path = PathBuf::from(cal_path);
-
+    pub fn load(path : PathBuf) -> Result<Calendar, io::Error>{ 
         let mut cal  = path.clone();
+       
+        fs::create_dir_all(&cal);
+         
         cal.push("calendar");
         cal.set_extension("yml");
 
-        fs::create_dir_all(&cal)?;
-
         let mut cal_raw = String::new();
-        File::open(cal)?.read_to_string(&mut cal_raw)?;
+
+        OpenOptions::new().create(true).read(true).write(true).open(&cal)?.read_to_string(&mut cal_raw)?;
+
+        println!("{}", cal_raw);
 
         // Parse Subscriptions
-        
         let mut cache_path = path.clone();
-        cache_path.push(".cache");
+        cache_path.set_extension(".cache");
 
-        let result_cache = File::open(cache_path.clone());
+        let result_cache = File::open(&cache_path);
 
         let mut cache : Option<Cache> = None;
 
@@ -89,11 +90,12 @@ impl Calendar {
             else {
                 cache = Some(loaded.unwrap());
             }
-            return Ok(Calendar {path: String::from(cal_path), subscriptions: vec![], cache: cache});
+        }
+        else {
+            println!("No Cache!");
         }
 
-        Err(Error::last_os_error())
-
+        Ok(Calendar {path: path.to_str().unwrap().to_owned(), subscriptions: vec![], cache: cache})
     }
 
 }
