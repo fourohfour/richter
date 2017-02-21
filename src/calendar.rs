@@ -1,15 +1,15 @@
-use serde_derive;
 extern crate serde_json  ;
 
 use std::hash::{Hash, Hasher};
 use std::collections::HashMap;
 use std::collections::hash_map::DefaultHasher;
 use std::io;
-use std::io::Error;
 use std::io::Read;
+use std::io::Write;
 use std::path::PathBuf;
 use std::fs;
 use std::fs::{File, OpenOptions};
+use std::error::Error;
 
 use smh;
 
@@ -28,7 +28,7 @@ impl Subscription {
     }
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize)]
 struct Cache {
     school_cache    : Option<HashMap<i32   , smh::School  >>, // school_id          -> School
     employee_cache  : Option<HashMap<i32   , smh::Employee>>, // employee_id        -> Employee
@@ -47,7 +47,24 @@ impl Cache {
             return Err("Unable to read from cache".to_owned());
         }
 
-        Ok(serde_json::from_str(&raw_cache).unwrap())
+        let res_cache = serde_json::from_str(&raw_cache);
+
+        if let Err(msg) = res_cache {
+            return Err(msg.to_string());
+        }
+
+        Ok(res_cache.unwrap())
+    }
+
+    fn dump(&self, mut file : File) -> Result<(), String> {
+        match serde_json::to_string(&self) {
+            Ok(out)  => match file.write_all(out.as_bytes()){
+                            Err(write) => return Err(write.description().to_owned()),
+                            _          => {}                                        , 
+                        },
+            Err(msg) => return Err(msg.to_string()),
+        }
+        Ok(())
     }
 }
 
@@ -61,7 +78,7 @@ impl Calendar {
     pub fn load(path : PathBuf) -> Result<Calendar, io::Error>{ 
         let mut cal  = path.clone();
        
-        fs::create_dir_all(&cal);
+        fs::create_dir_all(&cal)?;
          
         cal.push("calendar");
         cal.set_extension("yml");
@@ -70,11 +87,9 @@ impl Calendar {
 
         OpenOptions::new().create(true).read(true).write(true).open(&cal)?.read_to_string(&mut cal_raw)?;
 
-        println!("{}", cal_raw);
-
         // Parse Subscriptions
         let mut cache_path = path.clone();
-        cache_path.set_extension(".cache");
+        cache_path.push(".cache");
 
         let result_cache = File::open(&cache_path);
 
@@ -88,11 +103,9 @@ impl Calendar {
                 fs::remove_file(cache_path)?;
             }
             else {
-                cache = Some(loaded.unwrap());
+                let unwrapped = loaded.unwrap();
+                cache = Some(unwrapped);
             }
-        }
-        else {
-            println!("No Cache!");
         }
 
         Ok(Calendar {path: path.to_str().unwrap().to_owned(), subscriptions: vec![], cache: cache})
