@@ -6,6 +6,7 @@ use std::env;
 mod command;
 mod smh;
 mod calendar;
+mod interface;
 
 fn get_command() -> command::Command {
     let verbs = vec!["load".to_owned()];

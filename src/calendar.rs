@@ -12,6 +12,7 @@ use std::fs::{File, OpenOptions};
 use std::error::Error;
 
 use smh;
+use interface;
 
 #[derive(Hash)]
 struct Subscription {
@@ -107,6 +108,9 @@ impl Calendar {
                 cache = Some(unwrapped);
             }
         }
+
+        let inter = interface::Interface::new();
+        println!("{:?}", inter.get_schools("$SUBDOMAIN".to_owned()));
 
         Ok(Calendar {path: path.to_str().unwrap().to_owned(), subscriptions: vec![], cache: cache})
     }

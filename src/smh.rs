@@ -1,18 +1,18 @@
 #[derive(Debug, Serialize, Deserialize)]
 pub struct School   {
-    id          : i32,
-    subdomain   : String,
-    school_type : String,
-    name        : String,
-    address     : String,
-    town        : String,
-    post_code   : String,
-    country     : String,
-    description : String,
-    latitude    : f32,
-    longditude  : f32,
-    twitter     : String,
-    website     : String,
+    pub id          : i32,
+    pub subdomain   : String,
+    pub school_type : String,
+    pub name        : String,
+    pub address     : String,
+    pub town        : String,
+    pub post_code   : String,
+    pub country     : String,
+    pub description : String,
+    pub latitude    : f32,
+    pub longitude   : f32,
+    pub twitter     : String,
+    pub website     : String,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
