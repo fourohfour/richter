@@ -40,12 +40,16 @@ struct Cache {
 }
 
 impl Cache {
-    fn load(mut file : File) -> Result<Cache, String> {
+    fn load(mut file : File) -> Result<Option<Cache>, String> {
         let mut raw_cache = String::new();
         let read = file.read_to_string(&mut raw_cache);
 
         if let Err(_) = read {
             return Err("Unable to read from cache".to_owned());
+        }
+
+        if raw_cache == "" {
+            return Ok(None);
         }
 
         let res_cache = serde_json::from_str(&raw_cache);
@@ -54,7 +58,7 @@ impl Cache {
             return Err(msg.to_string());
         }
 
-        Ok(res_cache.unwrap())
+        Ok(Some(res_cache.unwrap()))
     }
 
     fn dump(&self, mut file : File) -> Result<(), String> {
@@ -75,42 +79,60 @@ pub struct Calendar {
     cache         : Option<Cache>     ,
 }
 
+struct CalendarPaths {
+    subscriptions : PathBuf           ,
+    cache         : PathBuf           ,
+}
+
 impl Calendar {
-    pub fn load(path : PathBuf) -> Result<Calendar, io::Error>{ 
-        let mut cal  = path.clone();
-       
+    fn touch(path : &PathBuf) -> Result<CalendarPaths, io::Error> {
+        let mut cal  = (*path).clone();       
         fs::create_dir_all(&cal)?;
          
         cal.push("calendar");
         cal.set_extension("yml");
 
-        let mut cal_raw = String::new();
+        OpenOptions::new().create(true).read(true).write(true).open(&cal)?;
 
-        OpenOptions::new().create(true).read(true).write(true).open(&cal)?.read_to_string(&mut cal_raw)?;
-
-        // Parse Subscriptions
-        let mut cache_path = path.clone();
+        let mut cache_path = (*path).clone();
         cache_path.push(".cache");
 
-        let result_cache = File::open(&cache_path);
+        OpenOptions::new().create(true).read(true).write(true).open(&cache_path)?;
+        
+        Ok(CalendarPaths {subscriptions: cal, cache: cache_path})
+    }
 
-        let mut cache : Option<Cache> = None;
+    fn load_cache(path : &PathBuf) -> Result<Option<Cache>, io::Error> {
+        let mut cache = None;
+        let cache_file = File::open(path)?;
 
-        if let Ok(cache_file) = result_cache {
-            let loaded = Cache::load(cache_file);
+        let loaded = Cache::load(cache_file);
 
-            if let Err(_) = loaded {
-                println!("Deleting Corrupted Cache...");
-                fs::remove_file(cache_path)?;
-            }
-            else {
-                let unwrapped = loaded.unwrap();
-                cache = Some(unwrapped);
-            }
+        if let Err(msg) = loaded {
+            println!("Error: {}", msg);
+            println!("Deleting Corrupted Cache...");
+            fs::remove_file(path)?;
+        }
+        else {
+            let cache = loaded.unwrap();
         }
 
+        Ok(cache)
+    }
+    
+    pub fn load(path : PathBuf) -> Result<Calendar, io::Error>{ 
+        let paths = Calendar::touch(&path)?; 
+
+        let mut cal_raw = String::new();
+
+        File::open(&paths.subscriptions)?.read_to_string(&mut cal_raw)?;
+
+        let cache = Calendar::load_cache(&paths.cache)?;
+        
+        // If cache is None, we need to update from the interface
         let inter = interface::Interface::new();
-        println!("{:?}", inter.get_schools("$SUBDOMAIN".to_owned()));
+        println!("{:?}", inter.get_schools("blah".to_owned()));
+        println!("{:?}", inter.get_classes(2));
 
         Ok(Calendar {path: path.to_str().unwrap().to_owned(), subscriptions: vec![], cache: cache})
     }

@@ -5,6 +5,10 @@ authors = ["FourOhFour <404.fourohfour@gmail.com>"]
 
 [dependencies]
 
-serde        = "0.9"
-serde_derive = "0.9"
-serde_json   = "0.9"
+serde           = "0.9"
+serde_derive    = "0.9"
+serde_json      = "0.9"
+
+reqwest         = "0.4.0"
+hyper           = "0.10.4"
+rustc-serialize = "0.3.22" 

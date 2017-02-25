@@ -17,40 +17,40 @@ pub struct School   {
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Employee {
-    id          : i32,
-    title       : String,
-    forename    : String,
-    surname     : String,
+    pub id          : i32,
+    pub title       : String,
+    pub forename    : String,
+    pub surname     : String,
     // classes?
 }
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Subject  {
-    id          : i32,
-    name        : String,
+    pub id          : i32,
+    pub name        : String,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Year     {
-    id          : i32,
-    name        : String,
+    pub id          : i32,
+    pub name        : String,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Class    {
-    id          : i32,
-    name        : String,
-    year_name   : String,
+    pub id          : i32,
+    pub name        : String,
+    pub year_name   : String,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-pub struct Entry    {
-    id          : i32,
-    title       : String,
-    class_name  : String,
-    year_name   : String,
-    subject_name: String,
-    employee_id : i32,
-    issued      : String, // These two to date in future?
-    due         : String, // Look at: time, chrono crates
+pub struct Entry {
+    pub id          : i32,
+    pub title       : String,
+    pub class_name  : String,
+    pub year_name   : String,
+    pub subject_name: String,
+    pub employee_id : i32,
+    pub issued      : String, // These two to date in future?
+    pub due         : String, // Look at: time, chrono crates
 }
