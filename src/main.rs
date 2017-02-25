@@ -7,6 +7,7 @@ mod command;
 mod smh;
 mod calendar;
 mod interface;
+mod output;
 
 fn get_command() -> command::Command {
     let verbs = vec!["load".to_owned()];

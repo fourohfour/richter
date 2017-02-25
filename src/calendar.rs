@@ -131,8 +131,11 @@ impl Calendar {
         
         // If cache is None, we need to update from the interface
         let inter = interface::Interface::new();
-        println!("{:?}", inter.get_schools("blah".to_owned()));
-        println!("{:?}", inter.get_classes(2));
+
+        match inter.get_classes(2) {
+            Ok(classes) => println!("{:?}", classes),
+            Err(msg)    => msg.error()              ,
+        }
 
         Ok(Calendar {path: path.to_str().unwrap().to_owned(), subscriptions: vec![], cache: cache})
     }

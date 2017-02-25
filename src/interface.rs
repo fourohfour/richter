@@ -6,6 +6,7 @@ use std::str::FromStr;
 use std::io::Read;
 use std::collections::HashMap;
 use smh;
+use output;
 
 use self::rustc_serialize::json;
 use self::hyper::mime::Mime;
@@ -13,9 +14,38 @@ use self::hyper::header::qitem;
 
 fn unwrap_json(opt: Option<&json::Json>) -> json::Json {
     match opt {
-        Some(json) => return (*json).clone() ,
-        None           => panic!("Bad JSON!"),
+        Some(json)     => return (*json).clone() ,
+        None           => output::Message::new("Interface",
+                                               "Unwrapping JSON",
+                                               "Unable to unwrap JSON (Option was None)").error(),
     }
+}
+
+fn bad_unwrap(activity: &str, message: &str) -> output::Message{
+    output::Message::new("Interface", activity, message)
+}
+
+fn get_field<'a>(json: &'a json::Json, field: &str, activity: &str, field_name: &str) -> Result<&'a json::Json, output::Message> {
+    let extracted = json.find(field).ok_or(bad_unwrap(activity, &format!("No {}", field_name)))?;
+    Ok(extracted)
+}
+
+fn get_i32_field(json: &json::Json, field: &str, activity: &str, field_name: &str) -> Result<i32, output::Message> {
+    let extracted = json.find(field).ok_or(bad_unwrap(activity, &format!("No {}", field_name)))?
+                        .as_i64().ok_or(bad_unwrap(activity, &format!("Bad {}", field_name)))?;
+    Ok(extracted as i32)
+}
+
+fn get_string_field(json: &json::Json, field: &str, activity: &str, field_name: &str) -> Result<String, output::Message> {
+    let extracted = json.find(field).ok_or(bad_unwrap(activity, &format!("No {}", field_name)))?
+                        .as_string().ok_or(bad_unwrap(activity, &format!("Bad {}", field_name)))?;
+    Ok(extracted.to_owned())
+}
+
+fn get_f32_field(json: &json::Json, field: &str, activity: &str, field_name: &str) -> Result<f32, output::Message> {
+    let extracted = json.find(field).ok_or(bad_unwrap(activity, &format!("No {}", field_name)))?
+                        .as_f64().ok_or(bad_unwrap(activity, &format!("Bad {}", field_name)))?;
+    Ok(extracted as f32)
 }
 
 fn add_query(url: &mut String, params: &HashMap<&str, &str>) {
@@ -24,8 +54,6 @@ fn add_query(url: &mut String, params: &HashMap<&str, &str>) {
         url.push_str(&format!("&{}={}", key, val));
     }
 }
-
-
 
 pub struct Interface {
     client    : reqwest::Client,
@@ -51,284 +79,200 @@ impl Interface {
         buf
     }
 
-    pub fn get_schools(&self, subdomain: String) -> Vec<smh::School> {
+    pub fn get_schools(&self, subdomain: String) -> Result<Vec<smh::School>, output::Message> {
         let subdomain_param = subdomain.clone();
         let mut params : HashMap<&str, &str>   = HashMap::new();
         params.insert("subdomain", subdomain_param.as_str());
 
         let mut endpoint = String::from("https://api.showmyhomework.co.uk/api/schools");
         add_query(&mut endpoint, &params);
-        let mut response = self.get_request(&endpoint);
+        let response = self.get_request(&endpoint);
 
-        let mut json = json::Json::from_str(&response).expect(&format!("Unable to read json for: https://api.showmyhomework.co.uk/api/schools"));
+        let json = json::Json::from_str(&response).expect(&format!("Unable to read json for: {}", &endpoint));
 
         let mut schools: Vec<smh::School> = vec![];
 
 
-        let schs = unwrap_json(json.find("schools"));
+        let schs = get_field(&json, "schools", "Getting Schools", "Schools Array")?;
         if let Some(schs_arr) = schs.as_array() {
             for sch in schs_arr {
-                let id          = unwrap_json(sch.find("id")).as_i64()
-                                                  .expect("Bad School ID");
-                let school_type = unwrap_json(sch.find("school_type")).as_string()
-                                                  .expect("Bad School Type")
-                                                  .to_owned();
-                let name        = unwrap_json(sch.find("name")).as_string()
-                                                  .expect("Bad Name Type")
-                                                  .to_owned();
-                let address     = unwrap_json(sch.find("address")).as_string()
-                                                  .expect("Bad Address")
-                                                  .to_owned();
-                let town        = unwrap_json(sch.find("town")).as_string()
-                                                  .expect("Bad Town")
-                                                  .to_owned();
-                let post_code   = unwrap_json(sch.find("post_code")).as_string()
-                                                  .expect("Bad Post Code")
-                                                  .to_owned();
-                let country     = unwrap_json(sch.find("country")).as_string()
-                                                  .expect("Bad Country")
-                                                  .to_owned();
-                let description = unwrap_json(sch.find("description")).as_string()
-                                                  .expect("Bad Description")
-                                                  .to_owned();
-                let latitude    = unwrap_json(sch.find("latitude")).as_f64()
-                                                  .expect("Bad Latitude");               
-                let longitude  = unwrap_json(sch.find("longitude")).as_f64()
-                                                  .expect("Bad Longditude");
-                let twitter     = unwrap_json(sch.find("twitter")).as_string()
-                                                  .expect("Bad Twitter")
-                                                  .to_owned();
-                let website     = unwrap_json(sch.find("website")).as_string()
-                                                  .expect("Bad Website")
-                                                  .to_owned();
                 schools.push(smh::School {
-                    id          : id as i32         ,
-                    subdomain   : subdomain.clone() ,
-                    school_type : school_type       ,
-                    name        : name              ,
-                    address     : address           ,
-                    town        : town              ,
-                    post_code   : post_code         ,
-                    country     : country           ,
-                    description : description       ,
-                    latitude    : latitude   as f32 ,
-                    longitude   : longitude as f32 ,
-                    twitter     : twitter           ,
-                    website     : website           ,
+                    id          : get_i32_field   (sch, "id"         , "Getting Schools", "School ID"          )?,                   
+                    subdomain   : subdomain.clone()                                                              , 
+                    school_type : get_string_field(sch, "school_type", "Getting Schools", "School Type"        )?,
+                    name        : get_string_field(sch, "name"       , "Getting Schools", "School Name"        )?,
+                    address     : get_string_field(sch, "address"    , "Getting Schools", "School Address"     )?,
+                    town        : get_string_field(sch, "town"       , "Getting Schools", "School Town"        )?, 
+                    post_code   : get_string_field(sch, "post_code"  , "Getting Schools", "School Postcode"    )?,
+                    country     : get_string_field(sch, "country"    , "Getting Schools", "School Country"     )?,
+                    description : get_string_field(sch, "description", "Getting Schools", "School Description" )?,
+                    latitude    : get_f32_field   (sch, "latitude"   , "Getting Schools", "School Latitude"    )?,
+                    longitude   : get_f32_field   (sch, "longitude"  , "Getting Schools", "School Longitude"   )?,
+                    twitter     : get_string_field(sch, "twitter"    , "Getting Schools", "School Twitter"     )?,
+                    website     : get_string_field(sch, "website"    , "Getting Schools", "School Website"     )?,   
                 });
             }
         }
         else {
-            panic!("No School Array in JSON");
+            output::Message::new("Interface", "Getting Schools", "No School Array in JSON").panic();
         }
 
-        schools
+        Ok(schools)
     }
 
-    pub fn get_entries(&self, subdomain: String) -> Vec<smh::Entry> {
+    pub fn get_entries(&self, subdomain: String) -> Result<Vec<smh::Entry>, output::Message> {
         let subdomain_param = subdomain.clone();
         let mut params : HashMap<&str, &str>   = HashMap::new();
         params.insert("subdomain", subdomain_param.as_str());
 
         let mut endpoint = String::from("https://api.showmyhomework.co.uk/api/calendars");
         add_query(&mut endpoint, &params);
-        let mut response = self.get_request(&endpoint);
+        let response = self.get_request(&endpoint);
 
-        let mut json = json::Json::from_str(&response).expect(&format!("Unable to read json for: https://api.showmyhomework.co.uk/api/calendars"));
+        let json = json::Json::from_str(&response).expect(&format!("Unable to read json for: {}", &endpoint));
 
         let mut entries: Vec<smh::Entry> = vec![];
 
 
-        let entry_json = unwrap_json(json.find("calendars"));
+        let entry_json = get_field(&json, "calendars", "Getting Entries", "Entry Array")?;
         if let Some(entry_arr) = entry_json.as_array() {
             for entry in entry_arr {
-                let id           = unwrap_json(entry.find("id")).as_i64()
-                                                    .expect("Bad Entry ID");
-                let title        = unwrap_json(entry.find("title")).as_string()
-                                                    .expect("Bad Entry Title")
-                                                    .to_owned();
-                let class_name   = unwrap_json(entry.find("class_group_name")).as_string()
-                                                    .expect("Bad Entry Class Name")
-                                                    .to_owned();
-                let year_name    = unwrap_json(entry.find("year")).as_string()
-                                                    .expect("Bad Entry Year Name")
-                                                    .to_owned();
-                let subject_name = unwrap_json(entry.find("subject")).as_string()
-                                                    .expect("Bad Entry Subject Name")
-                                                    .to_owned();
-                let employee_id  = unwrap_json(entry.find("teacher_id")).as_i64()
-                                                    .expect("Bad Entry Employee ID");
-                let issued       = unwrap_json(entry.find("issued_on")).as_string()
-                                                    .expect("Bad Entry Issue Date")
-                                                    .to_owned();
-                let due          = unwrap_json(entry.find("due_on")).as_string()
-                                                    .expect("Bad Entry Due Date")
-                                                    .to_owned();
                 entries.push(smh::Entry {
-                    id           : id as i32          ,
-                    title        : title              ,
-                    class_name   : class_name         ,
-                    year_name    : year_name          ,
-                    subject_name : subject_name       ,
-                    employee_id  : employee_id as i32 ,
-                    issued       : issued             ,
-                    due          : due                ,
+                    id           : get_i32_field   (entry, "id"               , "Getting Entries", "Entry ID"          )?,
+                    title        : get_string_field(entry, "title"            , "Getting Entries", "Entry Title"       )?,
+                    class_name   : get_string_field(entry, "class_group_name" , "Getting Entries", "Entry Class Name"  )?,
+                    year_name    : get_string_field(entry, "year"             , "Getting Entries", "Entry Year Name"   )?,
+                    subject_name : get_string_field(entry, "subject"          , "Getting Entries", "Entry Subject Name")?,
+                    employee_id  : get_i32_field   (entry, "teacher_id"       , "Getting Entries", "Entry Employee ID" )?,
+                    issued       : get_string_field(entry, "issued_on"        , "Getting Entries", "Entry Issue Date"  )?,
+                    due          : get_string_field(entry, "due_on"           , "Getting Entries", "Entry Due Date"    )?,
                 });
             }
         }
         else {
-            panic!("No Entry Array in JSON");
+            output::Message::new("Interface", "Getting Entries", "No Entry Array in JSON").panic();
         }
 
-        entries
+        Ok(entries)
     }
 
-    pub fn get_employees(&self, school_id: i32) -> Vec<smh::Employee> {
+    pub fn get_employees(&self, school_id: i32) -> Result<Vec<smh::Employee>, output::Message> {
         let id_param = school_id.to_string();
         let mut params : HashMap<&str, &str>   = HashMap::new();
         params.insert("school_id", &id_param);
 
         let mut endpoint = String::from("https://api.showmyhomework.co.uk/api/employees");
         add_query(&mut endpoint, &params);
-        let mut response = self.get_request(&endpoint);
+        let response = self.get_request(&endpoint);
 
-        let mut json = json::Json::from_str(&response).expect(&format!("Unable to read json for: https://api.showmyhomework.co.uk/api/employees"));
+        let json = json::Json::from_str(&response).expect(&format!("Unable to read json for: {}", &endpoint));
 
         let mut employees: Vec<smh::Employee> = vec![];
 
-        let emp_json = unwrap_json(json.find("employees"));
+        let emp_json = get_field(&json, "employees", "Getting Employees", "Employees Array")?;
         if let Some(emp_arr) = emp_json.as_array() {
             for emp in emp_arr {
-                let id           = unwrap_json(emp.find("id")).as_i64()
-                                                  .expect("Bad Employee ID");
-                let title        = unwrap_json(emp.find("title")).as_string()
-                                                  .expect("Bad Employee Title")
-                                                  .to_owned();
-                let forename     = unwrap_json(emp.find("forename")).as_string()
-                                                  .expect("Bad Employee Forename")
-                                                  .to_owned();
-                let surname      = unwrap_json(emp.find("surname")).as_string()
-                                                  .expect("Bad Employee Surnamea")
-                                                  .to_owned();
-                employees.push(smh::Employee {
-                    id           : id as i32          ,
-                    title        : title              ,
-                    forename     : forename           ,
-                    surname      : surname            ,
+                    employees.push(smh::Employee {
+                    id           : get_i32_field   (emp, "id"      , "Getting Employees", "Employee ID"       )?,
+                    title        : get_string_field(emp, "title"   , "Getting Employees", "Employee Title"    )?,
+                    forename     : get_string_field(emp, "forename", "Getting Employees", "Employee Forename" )?,
+                    surname      : get_string_field(emp, "surname" , "Getting Employees", "Employee Surname"  )?,
                 });
             }
         }
         else {
-            panic!("No Employee Array in JSON");
+            output::Message::new("Interface", "Getting Employees", "No Employee Array in JSON").panic();
         }
 
-        employees
+        Ok(employees)
     }
 
-    pub fn get_subjects(&self, school_id: i32) -> Vec<smh::Subject> {
+    pub fn get_subjects(&self, school_id: i32) -> Result<Vec<smh::Subject>, output::Message> {
         let id_param = school_id.to_string();
         let mut params : HashMap<&str, &str>   = HashMap::new();
         params.insert("school_id", &id_param);
 
         let mut endpoint = String::from("https://api.showmyhomework.co.uk/api/subjects");
         add_query(&mut endpoint, &params);
-        let mut response = self.get_request(&endpoint);
+        let response = self.get_request(&endpoint);
 
-        let mut json = json::Json::from_str(&response).expect(&format!("Unable to read json for: https://api.showmyhomework.co.uk/api/subjects"));
+        let json = json::Json::from_str(&response).expect(&format!("Unable to read json for: {}", &endpoint));
+
 
         let mut subjects: Vec<smh::Subject> = vec![];
 
-        let subj_json = unwrap_json(json.find("subjects"));
+        let subj_json = get_field(&json, "subjects", "Getting Subjects", "Subjects Array")?;
         if let Some(subj_arr) = subj_json.as_array() {
             for subject in subj_arr {
-                let id           = unwrap_json(subject.find("id")).as_i64()
-                                                      .expect("Bad Subject ID");
-                let name         = unwrap_json(subject.find("name")).as_string()
-                                                      .expect("Bad Subject Name")
-                                                      .to_owned();
                 subjects.push(smh::Subject {
-                    id           : id as i32          ,
-                    name         : name               ,
+                    id           : get_i32_field   (subject, "id"   , "Getting Subjects", "Subject ID"  )?,
+                    name         : get_string_field(subject, "name" , "Getting Subjects", "Subject Name")?,
                 });
             }
         }
         else {
-            panic!("No Subject Array in JSON");
+            output::Message::new("Interface", "Getting Subjects", "No Subject Array in JSON").panic();
         }
 
-        subjects
+        Ok(subjects)
     }
 
-    pub fn get_years(&self, school_id: i32) -> Vec<smh::Year> {
+    pub fn get_years(&self, school_id: i32) -> Result<Vec<smh::Year>, output::Message> {
         let id_param = school_id.to_string();
         let mut params : HashMap<&str, &str>   = HashMap::new();
         params.insert("school_id", &id_param);
 
         let mut endpoint = String::from("https://api.showmyhomework.co.uk/api/class_years");
         add_query(&mut endpoint, &params);
-        let mut response = self.get_request(&endpoint);
+        let response = self.get_request(&endpoint);
 
-        let mut json = json::Json::from_str(&response).expect(&format!("Unable to read json for: https://api.showmyhomework.co.uk/api/class_years"));
+        let json = json::Json::from_str(&response).expect(&format!("Unable to read json for: {}", &endpoint));
 
         let mut years: Vec<smh::Year> = vec![];
 
-        let year_json = unwrap_json(json.find("class_years"));
+        let year_json = get_field(&json, "class_years", "Getting Years", "Years Array")?;
         if let Some(year_arr) = year_json.as_array() {
             for year in year_arr {
-                let id           = unwrap_json(year.find("id")).as_i64()
-                                                   .expect("Bad Year ID");
-                let name         = unwrap_json(year.find("name")).as_string()
-                                                   .expect("Bad Year Name")
-                                                   .to_owned();
                 years.push(smh::Year {
-                    id           : id as i32          ,
-                    name         : name               ,
+                    id           : get_i32_field   (year, "id"   , "Getting Years", "Year ID"   )?,
+                    name         : get_string_field(year, "name" , "Getting Years", "Year Name" )?,
                 });
             }
         }
         else {
-            panic!("No Year Array in JSON");
+            output::Message::new("Interface", "Getting Years", "No Year Array in JSON").panic();
         }
 
-        years
+        Ok(years)
     }
 
-    pub fn get_classes(&self, school_id: i32) -> Vec<smh::Class> {
+    pub fn get_classes(&self, school_id: i32) -> Result<Vec<smh::Class>, output::Message> {
         let id_param = school_id.to_string();
         let mut params : HashMap<&str, &str>   = HashMap::new();
         params.insert("school_id", &id_param);
 
         let mut endpoint = String::from("https://api.showmyhomework.co.uk/api/class_groups");
         add_query(&mut endpoint, &params);
-        let mut response = self.get_request(&endpoint);
+        let response = self.get_request(&endpoint);
 
-        let mut json = json::Json::from_str(&response)
-                                  .expect(&format!("Unable to read json for: https://api.showmyhomework.co.uk/api/class_groups"));
+        let json = json::Json::from_str(&response).expect(&format!("Unable to read json for: {}", &endpoint));
 
         let mut classes: Vec<smh::Class> = vec![];
 
-        let class_json = unwrap_json(json.find("class_groups"));
+        let class_json = get_field(&json, "class_groups", "Getting Classes", "Classes Array")?;
         if let Some(class_arr) = class_json.as_array() {
             for class in class_arr {
-                let id           = unwrap_json(class.find("id")).as_i64()
-                                                   .expect("Bad Class ID");
-                let name         = unwrap_json(class.find("name")).as_string()
-                                                   .expect("Bad Class Name")
-                                                   .to_owned();
-                let year_name    = unwrap_json(class.find("class_year")).as_string()
-                                                   .expect("Bad Class Year Name")
-                                                   .to_owned();
                 classes.push(smh::Class {
-                    id           : id as i32          ,
-                    name         : name               ,
-                    year_name    : year_name          ,
+                    id           : get_i32_field   (class, "id"        , "Getting Classes", "Class ID"        )?,
+                    name         : get_string_field(class, "name"      , "Getting Classes", "Class Name"      )?,
+                    year_name    : get_string_field(class, "class_year", "Getting Classes", "Class Year Name" )?,
                 });
             }
         }
         else {
-            panic!("No Class Array in JSON");
+            output::Message::new("Interface", "Getting Classes", "No Class Array in JSON").panic();
         }
 
-        classes 
+        Ok(classes) 
     }
 }
