@@ -12,15 +12,6 @@ use self::rustc_serialize::json;
 use self::hyper::mime::Mime;
 use self::hyper::header::qitem;
 
-fn unwrap_json(opt: Option<&json::Json>) -> json::Json {
-    match opt {
-        Some(json)     => return (*json).clone() ,
-        None           => output::Message::new("Interface",
-                                               "Unwrapping JSON",
-                                               "Unable to unwrap JSON (Option was None)").error(),
-    }
-}
-
 fn bad_unwrap(activity: &str, message: &str) -> output::Message{
     output::Message::new("Interface", activity, message)
 }
