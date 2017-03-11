@@ -7,6 +7,7 @@ mod command;
 mod smh;
 mod calendar;
 mod interface;
+mod enroll;
 mod output;
 
 fn get_command() -> command::Command {
@@ -25,7 +26,7 @@ fn get_calendar() -> calendar::Calendar {
     let res = calendar::Calendar::load(home);
     match res {
         Ok (cal) => return cal       ,
-        Err(msg) => panic!("{}", msg),
+        Err(msg) => msg.panic()      ,
     }
 }
 

@@ -1,8 +1,7 @@
 extern crate serde_json  ;
 
-use std::hash::{Hash, Hasher};
 use std::collections::HashMap;
-use std::collections::hash_map::DefaultHasher;
+
 use std::io;
 use std::io::Read;
 use std::io::Write;
@@ -13,21 +12,8 @@ use std::error::Error;
 
 use smh;
 use interface;
-
-#[derive(Hash)]
-struct Subscription {
-    subdomain     : String,
-    school_id     : i32   ,
-    class         : String,
-}
-
-impl Subscription {
-    fn ident(&self) -> u64 {
-        let mut h = DefaultHasher::new();
-        self.hash(&mut h);
-        h.finish()
-    }
-}
+use enroll;
+use output;
 
 #[derive(Debug, Serialize, Deserialize)]
 struct Cache {
@@ -35,11 +21,16 @@ struct Cache {
     employee_cache  : Option<HashMap<i32   , smh::Employee>>, // employee_id        -> Employee
     subject_cache   : Option<HashMap<String, smh::Subject >>, // subject_name       -> Subject
     year_cache      : Option<HashMap<String, smh::Year    >>, // year_name          -> Year
-    entry_cache     : Option<HashMap<i32   , smh::Entry   >>, // entry_id           -> Entry
-    sub_cache       : Option<HashMap<i32   , smh::Class   >>, // Subscription.ident -> Class
+
+    sub_cache       : Option<HashMap<u64   , smh::Class      >>, // Enrollment.ident -> Class
+    entry_cache     : Option<HashMap<u64   , Vec<smh::Entry> >>  // Enrollment.ident -> Vec<Entry>
 }
 
 impl Cache {
+    fn build() -> Result<Option<Cache>, String> {
+        Err(String::from("Unimpl"))
+    }
+
     fn load(mut file : File) -> Result<Option<Cache>, String> {
         let mut raw_cache = String::new();
         let read = file.read_to_string(&mut raw_cache);
@@ -74,18 +65,18 @@ impl Cache {
 }
 
 pub struct Calendar {
-    path          : String            ,
-    subscriptions : Vec<Subscription> ,
-    cache         : Option<Cache>     ,
+    path          : String                        ,
+    enrollments   : Vec<enroll::Enrollment>       ,
+    cache         : Option<Cache>                 ,
 }
 
 struct CalendarPaths {
-    subscriptions : PathBuf           ,
+    enrollments   : PathBuf           ,
     cache         : PathBuf           ,
 }
 
 impl Calendar {
-    fn touch(path : &PathBuf) -> Result<CalendarPaths, io::Error> {
+    fn touch(path : &PathBuf) -> Result<CalendarPaths, output::Message> {
         let mut cal  = (*path).clone();       
         fs::create_dir_all(&cal)?;
          
@@ -99,10 +90,10 @@ impl Calendar {
 
         OpenOptions::new().create(true).read(true).write(true).open(&cache_path)?;
         
-        Ok(CalendarPaths {subscriptions: cal, cache: cache_path})
+        Ok(CalendarPaths {enrollments: cal, cache: cache_path})
     }
 
-    fn load_cache(path : &PathBuf) -> Result<Option<Cache>, io::Error> {
+    fn load_cache(path : &PathBuf) -> Result<Option<Cache>, output::Message> {
         let mut cache = None;
         let cache_file = File::open(path)?;
 
@@ -120,24 +111,22 @@ impl Calendar {
         Ok(cache)
     }
     
-    pub fn load(path : PathBuf) -> Result<Calendar, io::Error>{ 
-        let paths = Calendar::touch(&path)?; 
+    pub fn load(path : PathBuf) -> Result<Calendar, output::Message>{ 
+        let paths = Calendar::touch(&path)?;
 
-        let mut cal_raw = String::new();
-
-        File::open(&paths.subscriptions)?.read_to_string(&mut cal_raw)?;
+        let enrollments = enroll::Enrollment::load(&paths.enrollments)?;
 
         let cache = Calendar::load_cache(&paths.cache)?;
         
         // If cache is None, we need to update from the interface
         let inter = interface::Interface::new();
 
-        match inter.get_classes(2) {
-            Ok(classes) => println!("{:?}", classes),
+        match inter.get_classes(0) {
+            Ok(classes) => println!("Successfully loaded classes"),
             Err(msg)    => msg.error()              ,
         }
 
-        Ok(Calendar {path: path.to_str().unwrap().to_owned(), subscriptions: vec![], cache: cache})
+        Ok(Calendar {path: path.to_str().unwrap().to_owned(), enrollments: vec![], cache: cache})
     }
 
 }

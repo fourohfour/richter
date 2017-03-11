@@ -1,6 +1,6 @@
+extern crate rustc_serialize;
 extern crate reqwest;
 extern crate hyper;
-extern crate rustc_serialize;
 
 use std::str::FromStr;
 use std::io::Read;
@@ -46,6 +46,12 @@ fn add_query(url: &mut String, params: &HashMap<&str, &str>) {
     }
 }
 
+fn param_builder<'a>(k: &'a str, v: &'a str) -> HashMap<&'a str, &'a str> {
+    let mut params   = HashMap::new();
+    params.insert(k, v);
+    params
+}
+
 pub struct Interface {
     client    : reqwest::Client,
     user_agent: reqwest::header::UserAgent,
@@ -58,31 +64,33 @@ impl Interface {
         Interface {client: client, user_agent: user_agent}
     }
 
-    fn get_request(&self, endpoint: &str) -> String { 
+    fn get_request(&self, endpoint: &str) -> Result<String, output::Message> { 
         let mut request = self.client.get(endpoint)
                                      .header(self.user_agent.clone())
                                      .header(reqwest::header::Accept(vec![qitem(Mime::from_str("application/smhw.v3+json").unwrap())]))
-                                     .send()
-                                     .expect(&format!("Unable to make request to: {}", endpoint));
+                                     .send()?;
         let mut buf = String::new();
-        request.read_to_string(&mut buf).expect(&format!("Unable to read request for: {}", endpoint));
+        request.read_to_string(&mut buf)?;//.expect(&format!("Unable to read request for: {}", endpoint));
 
-        buf
+        Ok(buf)
     }
+
+    fn json_request(&self, mut endpoint: String, params: &HashMap<&str, &str>) -> Result<json::Json, output::Message> {
+        add_query(&mut endpoint, &params);
+        let response = self.get_request(&endpoint)?;
+        let json     = json::Json::from_str(&response)?;
+        Ok(json)
+    }
+
 
     pub fn get_schools(&self, subdomain: String) -> Result<Vec<smh::School>, output::Message> {
         let subdomain_param = subdomain.clone();
-        let mut params : HashMap<&str, &str>   = HashMap::new();
-        params.insert("subdomain", subdomain_param.as_str());
-
+        let params = param_builder("subdomain", &subdomain_param); 
         let mut endpoint = String::from("https://api.showmyhomework.co.uk/api/schools");
-        add_query(&mut endpoint, &params);
-        let response = self.get_request(&endpoint);
-
-        let json = json::Json::from_str(&response).expect(&format!("Unable to read json for: {}", &endpoint));
-
+        
+        let json = self.json_request(endpoint, &params)?;
+ 
         let mut schools: Vec<smh::School> = vec![];
-
 
         let schs = get_field(&json, "schools", "Getting Schools", "Schools Array")?;
         if let Some(schs_arr) = schs.as_array() {
@@ -113,14 +121,10 @@ impl Interface {
 
     pub fn get_entries(&self, subdomain: String) -> Result<Vec<smh::Entry>, output::Message> {
         let subdomain_param = subdomain.clone();
-        let mut params : HashMap<&str, &str>   = HashMap::new();
-        params.insert("subdomain", subdomain_param.as_str());
-
+        let params = param_builder("subdomain", &subdomain_param); 
         let mut endpoint = String::from("https://api.showmyhomework.co.uk/api/calendars");
-        add_query(&mut endpoint, &params);
-        let response = self.get_request(&endpoint);
-
-        let json = json::Json::from_str(&response).expect(&format!("Unable to read json for: {}", &endpoint));
+        
+        let json = self.json_request(endpoint, &params)?;
 
         let mut entries: Vec<smh::Entry> = vec![];
 
@@ -148,15 +152,11 @@ impl Interface {
     }
 
     pub fn get_employees(&self, school_id: i32) -> Result<Vec<smh::Employee>, output::Message> {
-        let id_param = school_id.to_string();
-        let mut params : HashMap<&str, &str>   = HashMap::new();
-        params.insert("school_id", &id_param);
-
+        let id     = school_id.to_string();
+        let params = param_builder("school_id", &id); 
         let mut endpoint = String::from("https://api.showmyhomework.co.uk/api/employees");
-        add_query(&mut endpoint, &params);
-        let response = self.get_request(&endpoint);
-
-        let json = json::Json::from_str(&response).expect(&format!("Unable to read json for: {}", &endpoint));
+        
+        let json = self.json_request(endpoint, &params)?;
 
         let mut employees: Vec<smh::Employee> = vec![];
 
@@ -179,16 +179,11 @@ impl Interface {
     }
 
     pub fn get_subjects(&self, school_id: i32) -> Result<Vec<smh::Subject>, output::Message> {
-        let id_param = school_id.to_string();
-        let mut params : HashMap<&str, &str>   = HashMap::new();
-        params.insert("school_id", &id_param);
-
+        let id     = school_id.to_string();
+        let params = param_builder("school_id", &id); 
         let mut endpoint = String::from("https://api.showmyhomework.co.uk/api/subjects");
-        add_query(&mut endpoint, &params);
-        let response = self.get_request(&endpoint);
-
-        let json = json::Json::from_str(&response).expect(&format!("Unable to read json for: {}", &endpoint));
-
+        
+        let json = self.json_request(endpoint, &params)?;
 
         let mut subjects: Vec<smh::Subject> = vec![];
 
@@ -209,15 +204,11 @@ impl Interface {
     }
 
     pub fn get_years(&self, school_id: i32) -> Result<Vec<smh::Year>, output::Message> {
-        let id_param = school_id.to_string();
-        let mut params : HashMap<&str, &str>   = HashMap::new();
-        params.insert("school_id", &id_param);
-
+        let id     = school_id.to_string();
+        let params = param_builder("school_id", &id); 
         let mut endpoint = String::from("https://api.showmyhomework.co.uk/api/class_years");
-        add_query(&mut endpoint, &params);
-        let response = self.get_request(&endpoint);
-
-        let json = json::Json::from_str(&response).expect(&format!("Unable to read json for: {}", &endpoint));
+        
+        let json = self.json_request(endpoint, &params)?;
 
         let mut years: Vec<smh::Year> = vec![];
 
@@ -238,15 +229,11 @@ impl Interface {
     }
 
     pub fn get_classes(&self, school_id: i32) -> Result<Vec<smh::Class>, output::Message> {
-        let id_param = school_id.to_string();
-        let mut params : HashMap<&str, &str>   = HashMap::new();
-        params.insert("school_id", &id_param);
-
+        let id     = school_id.to_string();
+        let params = param_builder("school_id", &id); 
         let mut endpoint = String::from("https://api.showmyhomework.co.uk/api/class_groups");
-        add_query(&mut endpoint, &params);
-        let response = self.get_request(&endpoint);
-
-        let json = json::Json::from_str(&response).expect(&format!("Unable to read json for: {}", &endpoint));
+        
+        let json = self.json_request(endpoint, &params)?;
 
         let mut classes: Vec<smh::Class> = vec![];
 
