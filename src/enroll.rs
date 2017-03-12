@@ -1,4 +1,5 @@
-extern crate yaml_rust;
+extern crate serde_json; 
+extern crate yaml_rust ;
 
 use std::hash::{Hash, Hasher};
 use std::collections::HashMap;
@@ -14,11 +15,11 @@ use calendar;
 
 type SchoolMap = HashMap<String, (i32, String)>;
 
-#[derive(Debug, Hash)]
+#[derive(Debug, Clone, Hash, Serialize, Deserialize)]
 pub struct Enrollment {
-    subdomain     : String,
-    school_id     : i32   ,
-    class         : String,
+    pub subdomain     : String,
+    pub school_id     : i32   ,
+    pub class         : String,
 }
 
 impl Enrollment {
@@ -26,6 +27,18 @@ impl Enrollment {
         let mut h = DefaultHasher::new();
         self.hash(&mut h);
         h.finish()
+    }
+
+    pub fn get_subdomain<'a>(&'a self) -> &'a str {
+        &self.subdomain
+    }
+
+    pub fn get_school_id<'a>(&self) -> i32 {
+        self.school_id
+    }
+    
+    pub fn get_class<'a>(&'a self) -> &'a str {
+        &self.class
     }
 
     fn extract_school_name(sch_key: &Yaml) -> Result<String, output::Message> {
@@ -184,16 +197,30 @@ impl Enrollment {
         let mut enroll_str = String::new();
         f.read_to_string(&mut enroll_str)?;
 
-        let raw     = YamlLoader::load_from_str(&enroll_str)?;
-        let enrolls = &raw[0];
-        let ref schools = enrolls["schools"];
-        
-        let schools = Enrollment::extract_schools(schools)?;
+        let mut raw  = YamlLoader::load_from_str(&enroll_str)?;
+        if let Some(ref enrolls) = raw.pop() {
+            let ref schools = enrolls["schools"];
+            
+            let schools = Enrollment::extract_schools(schools)?;
 
-        let ref enrollment_yaml = enrolls["enrollments"];
+            let ref enrollment_yaml = enrolls["enrollments"];
 
-        let enrollments = Enrollment::extract_enrollments(enrollment_yaml, schools)?;
+            let enrollments = Enrollment::extract_enrollments(enrollment_yaml, schools)?;
 
-        Ok(enrollments)
+            Ok(enrollments)
+        }
+        else {
+            Err(output::Message::new("Reading YAML File",
+                                     "Loading from String",
+                                     "No YAML docs in read"))
+        }
     }
 }
+
+impl PartialEq for Enrollment {
+    fn eq(&self, other: &Enrollment) -> bool {
+        (self.ident() == other.ident())
+    }
+}
+
+impl Eq for Enrollment {}

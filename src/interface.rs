@@ -33,6 +33,13 @@ fn get_string_field(json: &json::Json, field: &str, activity: &str, field_name: 
     Ok(extracted.to_owned())
 }
 
+fn get_optional_string_field(json: &json::Json, field: &str, activity: &str, field_name: &str) -> String {
+    match get_string_field(json, "", "", "") {
+        Ok(s)   => s            ,
+        Err(_)  => "".to_owned(),
+    }
+}
+
 fn get_f32_field(json: &json::Json, field: &str, activity: &str, field_name: &str) -> Result<f32, output::Message> {
     let extracted = json.find(field).ok_or(bad_unwrap(activity, &format!("No {}", field_name)))?
                         .as_f64().ok_or(bad_unwrap(activity, &format!("Bad {}", field_name)))?;
@@ -83,9 +90,8 @@ impl Interface {
     }
 
 
-    pub fn get_schools(&self, subdomain: String) -> Result<Vec<smh::School>, output::Message> {
-        let subdomain_param = subdomain.clone();
-        let params = param_builder("subdomain", &subdomain_param); 
+    pub fn get_schools(&self, subdomain: &str) -> Result<Vec<smh::School>, output::Message> {
+        let params = param_builder("subdomain", &subdomain); 
         let endpoint = String::from("https://api.showmyhomework.co.uk/api/schools");
         
         let json = self.json_request(endpoint, &params)?;
@@ -97,18 +103,18 @@ impl Interface {
             for sch in schs_arr {
                 schools.push(smh::School {
                     id          : get_i32_field   (sch, "id"         , "Getting Schools", "School ID"          )?,                   
-                    subdomain   : subdomain.clone()                                                              , 
+                    subdomain   : subdomain.to_owned()                                                              , 
                     school_type : get_string_field(sch, "school_type", "Getting Schools", "School Type"        )?,
                     name        : get_string_field(sch, "name"       , "Getting Schools", "School Name"        )?,
                     address     : get_string_field(sch, "address"    , "Getting Schools", "School Address"     )?,
                     town        : get_string_field(sch, "town"       , "Getting Schools", "School Town"        )?, 
                     post_code   : get_string_field(sch, "post_code"  , "Getting Schools", "School Postcode"    )?,
                     country     : get_string_field(sch, "country"    , "Getting Schools", "School Country"     )?,
-                    description : get_string_field(sch, "description", "Getting Schools", "School Description" )?,
-                    latitude    : get_f32_field   (sch, "latitude"   , "Getting Schools", "School Latitude"    )?,
-                    longitude   : get_f32_field   (sch, "longitude"  , "Getting Schools", "School Longitude"   )?,
-                    twitter     : get_string_field(sch, "twitter"    , "Getting Schools", "School Twitter"     )?,
-                    website     : get_string_field(sch, "website"    , "Getting Schools", "School Website"     )?,   
+                    description : get_optional_string_field(sch, "description", "Getting Schools", "School Description" ) ,
+                    latitude    : get_f32_field            (sch, "latitude"   , "Getting Schools", "School Latitude"    )?,
+                    longitude   : get_f32_field            (sch, "longitude"  , "Getting Schools", "School Longitude"   )?,
+                    twitter     : get_optional_string_field(sch, "twitter"    , "Getting Schools", "School Twitter"     ) ,  
+                    website     : get_optional_string_field(sch, "website"    , "Getting Schools", "School Website"     ) ,   
                 });
             }
         }
@@ -119,15 +125,13 @@ impl Interface {
         Ok(schools)
     }
 
-    pub fn get_entries(&self, subdomain: String) -> Result<Vec<smh::Entry>, output::Message> {
-        let subdomain_param = subdomain.clone();
-        let params = param_builder("subdomain", &subdomain_param); 
+    pub fn get_entries(&self, subdomain: &str) -> Result<Vec<smh::Entry>, output::Message> {
+        let params = param_builder("subdomain", subdomain); 
         let endpoint = String::from("https://api.showmyhomework.co.uk/api/calendars");
         
         let json = self.json_request(endpoint, &params)?;
 
         let mut entries: Vec<smh::Entry> = vec![];
-
 
         let entry_json = get_field(&json, "calendars", "Getting Entries", "Entry Array")?;
         if let Some(entry_arr) = entry_json.as_array() {
