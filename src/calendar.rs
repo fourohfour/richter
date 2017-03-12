@@ -2,7 +2,6 @@ extern crate serde_json  ;
 
 use std::collections::HashMap;
 
-use std::io;
 use std::io::Read;
 use std::io::Write;
 use std::path::PathBuf;
@@ -123,10 +122,10 @@ impl Calendar {
 
         match inter.get_classes(0) {
             Ok(classes) => println!("Successfully loaded classes"),
-            Err(msg)    => msg.error()              ,
+            Err(msg)    => msg.error()                            ,
         }
 
-        Ok(Calendar {path: path.to_str().unwrap().to_owned(), enrollments: vec![], cache: cache})
+        Ok(Calendar {path: path.to_str().unwrap().to_owned(), enrollments: enrollments, cache: cache})
     }
 
 }

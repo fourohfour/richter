@@ -86,7 +86,7 @@ impl Interface {
     pub fn get_schools(&self, subdomain: String) -> Result<Vec<smh::School>, output::Message> {
         let subdomain_param = subdomain.clone();
         let params = param_builder("subdomain", &subdomain_param); 
-        let mut endpoint = String::from("https://api.showmyhomework.co.uk/api/schools");
+        let endpoint = String::from("https://api.showmyhomework.co.uk/api/schools");
         
         let json = self.json_request(endpoint, &params)?;
  
@@ -122,7 +122,7 @@ impl Interface {
     pub fn get_entries(&self, subdomain: String) -> Result<Vec<smh::Entry>, output::Message> {
         let subdomain_param = subdomain.clone();
         let params = param_builder("subdomain", &subdomain_param); 
-        let mut endpoint = String::from("https://api.showmyhomework.co.uk/api/calendars");
+        let endpoint = String::from("https://api.showmyhomework.co.uk/api/calendars");
         
         let json = self.json_request(endpoint, &params)?;
 
@@ -154,7 +154,7 @@ impl Interface {
     pub fn get_employees(&self, school_id: i32) -> Result<Vec<smh::Employee>, output::Message> {
         let id     = school_id.to_string();
         let params = param_builder("school_id", &id); 
-        let mut endpoint = String::from("https://api.showmyhomework.co.uk/api/employees");
+        let endpoint = String::from("https://api.showmyhomework.co.uk/api/employees");
         
         let json = self.json_request(endpoint, &params)?;
 
@@ -181,7 +181,7 @@ impl Interface {
     pub fn get_subjects(&self, school_id: i32) -> Result<Vec<smh::Subject>, output::Message> {
         let id     = school_id.to_string();
         let params = param_builder("school_id", &id); 
-        let mut endpoint = String::from("https://api.showmyhomework.co.uk/api/subjects");
+        let endpoint = String::from("https://api.showmyhomework.co.uk/api/subjects");
         
         let json = self.json_request(endpoint, &params)?;
 
@@ -206,7 +206,7 @@ impl Interface {
     pub fn get_years(&self, school_id: i32) -> Result<Vec<smh::Year>, output::Message> {
         let id     = school_id.to_string();
         let params = param_builder("school_id", &id); 
-        let mut endpoint = String::from("https://api.showmyhomework.co.uk/api/class_years");
+        let endpoint = String::from("https://api.showmyhomework.co.uk/api/class_years");
         
         let json = self.json_request(endpoint, &params)?;
 
@@ -231,7 +231,7 @@ impl Interface {
     pub fn get_classes(&self, school_id: i32) -> Result<Vec<smh::Class>, output::Message> {
         let id     = school_id.to_string();
         let params = param_builder("school_id", &id); 
-        let mut endpoint = String::from("https://api.showmyhomework.co.uk/api/class_groups");
+        let endpoint = String::from("https://api.showmyhomework.co.uk/api/class_groups");
         
         let json = self.json_request(endpoint, &params)?;
 

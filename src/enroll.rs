@@ -12,7 +12,9 @@ use output;
 
 use calendar;
 
-#[derive(Hash)]
+type SchoolMap = HashMap<String, (i32, String)>;
+
+#[derive(Debug, Hash)]
 pub struct Enrollment {
     subdomain     : String,
     school_id     : i32   ,
@@ -102,8 +104,8 @@ impl Enrollment {
         }
     }
 
-    fn extract_schools(schools: &Yaml) -> Result<HashMap<String, (i32, String)>, output::Message>{
-		let mut extracted: HashMap<String, (i32, String)> = HashMap::new();
+    fn extract_schools(schools: &Yaml) -> Result<SchoolMap, output::Message>{
+		let mut extracted: SchoolMap = HashMap::new();
 
         if let Yaml::Hash(ref sch_map) = *schools {
 			for (school_val, info_val) in sch_map {
@@ -122,6 +124,61 @@ impl Enrollment {
         return Ok(extracted)
     }
 
+
+    fn extract_enrollment(enrollment_val: &Yaml, schools: &SchoolMap) -> Result<Enrollment, output::Message> {
+        if let Yaml::Hash(ref enroll_info) = *enrollment_val {
+            let mut provisional : (Option<i32>, Option<String>, Option<String>) = (None, None, None);
+            for (key, value) in enroll_info {
+                if let Yaml::String(ref s) = *key {
+                    if s == "school" {
+                        if let Yaml::String(ref sch_name) = *value {
+                            if let Some(info) = schools.get(sch_name) {
+                                provisional.1 = Some(info.1.clone());
+                                provisional.0 = Some(info.0);
+                            }
+                        }
+                    }
+                    else if s == "class" {
+                        if let Yaml::String(ref class_name) = *value {
+                            provisional.2 = Some(class_name.to_owned());
+                        }
+                    }
+                }
+            }
+
+            match provisional {
+                (Some(school_id), Some(subdomain), Some(class_name)) => return Ok(Enrollment {subdomain  : subdomain ,
+                                                                                              school_id  : school_id ,
+                                                                                              class      : class_name,}),
+                _                                                    => return Err(output::Message::new("Reading YAML File",
+                                                                                                        "Loading Enrollment Info",
+                                                                                                        "Not all required fields found",)),
+            }
+        }
+        else {
+            return Err(output::Message::new("Reading YAML File",
+                                            "Loading Enrollment Info",
+                                            "Enrollment in array is not in form of mapping.",))
+        }
+    }
+
+    fn extract_enrollments(enrollment_yaml: &Yaml, schools: SchoolMap) -> Result<Vec<Enrollment>, output::Message> {
+        if let Yaml::Array(ref enrollments) = *enrollment_yaml {
+            let mut results: Vec<Enrollment> = vec![];
+            
+            for enrollment in enrollments {
+                results.push(Enrollment::extract_enrollment(enrollment, &schools)?);
+            }
+            
+            return Ok(results);
+        }
+        else {
+            return Err(output::Message::new("Reading YAML File",
+                                            "Loading Enrollment Info",
+                                            "Array of enrollments not found."));
+        }
+    }
+
     pub fn load(path: &PathBuf) -> Result<Vec<Enrollment>, output::Message> {
         let mut f = File::open(path)?;
         let mut enroll_str = String::new();
@@ -131,10 +188,12 @@ impl Enrollment {
         let enrolls = &raw[0];
         let ref schools = enrolls["schools"];
         
-        let schools = Enrollment::extract_schools(schools); 
-        
-        println!("{:?}", schools);
+        let schools = Enrollment::extract_schools(schools)?;
 
-        Ok(vec![])
+        let ref enrollment_yaml = enrolls["enrollments"];
+
+        let enrollments = Enrollment::extract_enrollments(enrollment_yaml, schools)?;
+
+        Ok(enrollments)
     }
 }
